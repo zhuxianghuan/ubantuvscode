@@ -1,0 +1,272 @@
+1 sudo code --user-data-dir="~/.vscode-root"
+
+2 tcp 服务器程序1
+
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Net;
+using System.Net.Sockets;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace test
+{
+    class Program
+    {
+        static TcpListener tcpListener;
+        static List<NetworkStream> networkStreams = new List<NetworkStream>();
+        static void Main(string[] args)
+        {
+tcpListener = new TcpListener(IPAddress.Parse("127.0.0.1"), 9999);
+            tcpListener.Start(10);
+            Console.WriteLine("启动服务（IP：127.0.0.1 端口：9999），等待客户端连接！");
+            Task.Run(() => { Accept(); });
+
+            while (true)
+            {
+                //群发
+                var msg = Console.ReadLine();
+                foreach (var item in networkStreams)
+                {
+                    item.Write(Encoding.UTF8.GetBytes(msg));
+                }
+            }
+        }
+
+
+3  tcp 服务器程序2
+
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Net;
+using System.Net.Sockets;
+using System.Text;
+using System.Threading.Tasks;
+using System.Device.Gpio;
+namespace test
+{
+    class Program
+    {
+       // static TcpListener tcpListener;
+//        static List<NetworkStream> networkStreams = new List<NetworkStream>();
+        static void Main(string[] args)
+        {
+            Int32 port = 13000;
+            IPAddress localadd = IPAddress.Any;
+            TcpListener server = new TcpListener(localadd, port);
+            server.Start();
+            Byte[] bytes = new byte[256];
+            String data = null;
+            TcpClient client=null;
+            try
+            {
+                while (true)
+                {
+                    Console.WriteLine("等待新的连接...");
+                    client = server.AcceptTcpClient();
+                    Console.WriteLine("连接成功！");
+                    data = null;
+                    NetworkStream nstream = client.GetStream();
+                    int offset;
+                    while ((offset = nstream.Read(bytes, 0, bytes.Length)) != 0)
+                    {
+                        data = System.Text.Encoding.UTF8.GetString(bytes, 0, offset);
+                        Console.WriteLine("收到了：" + data);
+                        byte[] msg = System.Text.Encoding.UTF8.GetBytes(data);
+                        nstream.Write(msg, 0, msg.Length);
+                        Console.WriteLine("发送了:{0}", data);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                client.Close();
+                Console.WriteLine(ex.Message);
+            }
+            Console.WriteLine("服务器已停止.");
+            Console.ReadLine();
+
+        }
+        
+
+    }
+}
+
+
+        /// <summary>
+        /// 等待客户端的连接
+        /// </summary>
+        static void Accept()
+        {
+            while (true)
+            {
+                TcpClient tcpClient = tcpListener.AcceptTcpClient();
+                NetworkStream networkStream = tcpClient.GetStream();
+                Console.WriteLine($"{tcpClient.Client.RemoteEndPoint}上线");
+                networkStreams.Add(networkStream);
+                Task.Run(() => { Read(networkStream, tcpClient); });
+            }
+        }
+
+        /// <summary>
+        /// 接收消息
+        /// </summary>
+        /// <param name="networkStream"></param>
+        static void Read(NetworkStream networkStream, TcpClient tcpClient)
+        {
+            while (true)
+            {
+                try
+                {
+                    byte[] buffer = new byte[1024 * 1024];
+                    //BinaryReader binaryReader = new BinaryReader(networkStream);
+                    var readLen = networkStream.Read(buffer, 0, buffer.Length);
+                    if (readLen == 0)
+                    {
+                        Console.WriteLine($"{tcpClient.Client.RemoteEndPoint}下线");
+                        networkStreams.Remove(networkStream);
+                        networkStream.Close();
+                        tcpClient.Close();
+                        return;
+                    }
+                    Console.WriteLine(tcpClient.Client.RemoteEndPoint + ":" + Encoding.UTF8.GetString(buffer, 0, readLen));
+                }
+                catch (Exception) { }
+            }
+        }
+        
+
+    }
+}
+
+
+
+4   操作GPIO程序
+
+
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Net;
+using System.Net.Sockets;
+using System.Text;
+using System.Threading.Tasks;
+using System.Threading;
+using System.Device.Gpio;
+namespace test
+{
+    class Program
+    {
+        static void Main(string[] args)
+        {
+           GpioController aaa=new GpioController();
+           aaa.OpenPin(87, PinMode.Input);
+            PinValue SensorBody = aaa.Read(87);
+            aaa.ClosePin(87);
+
+            if (SensorBody == 1)
+            {
+                Console.WriteLine("GPIO3_IO23(LCD_D18) Value 1");
+            }
+            else
+            {
+                Console.WriteLine("GPIO3_IO23(LCD_D18) Value 0");
+            }
+            Thread.Sleep(1000);
+            
+        }
+        
+
+    }
+}
+
+5 委托 
+
+
+using System;
+
+namespace learn
+{
+    delegate void MyDel(int value);
+    class Program
+    {
+        //Program aaa=new Program();
+       
+        static void Main(string[] args)
+        {
+            void PrintLow(int value)
+                {
+
+                    System.Console.WriteLine("{0}-Low value",value);
+                }
+                 void PrintHigh(int value)
+                {
+
+                    System.Console.WriteLine("{0}-high value",value);
+                }
+            
+           MyDel d1,d2;
+           d1=PrintHigh;
+           d2=PrintLow;
+           d1(30);
+           d2(80);
+
+
+               
+        
+        }
+    }
+}
+
+6 事件
+
+using System;
+using System.Threading;
+public delegate void haha(int value);
+namespace shijian
+{
+    class Program
+    {
+        public event haha myevent;
+        public void  cd()
+        {
+
+            if (myevent!=null)
+            {
+                myevent(20);
+            }
+
+        }
+             public void  fangfa(int value)
+            {
+
+                System.Console.WriteLine("nihao a zhuxianghuan!");
+
+            }
+        static void Main(string[] args)
+        {
+            Program aa=new Program();
+            aa.myevent+=new haha(aa.fangfa);
+            while (true)
+            {
+                for (int i = 0; i < 10; i++)
+                {
+                    Thread.Sleep(1000);
+                    System.Console.WriteLine(i);
+                    if (i==6)
+                    {
+                         aa.cd();
+                    }
+                }
+
+
+            }
+           
+
+        }
+    }
+}
+
+
